@@ -1,0 +1,137 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(ggplot2)
+library(moderndive)
+library(gapminder)
+library(sjPlot)
+library(stats)
+library(jtools)
+library(GGally)
+library(gt)
+```
+
+```{r}
+data<-read.csv('D:/desktop/dataset23.csv')
+data$yesno<-as.factor(data$yesno)
+data <- data[rowSums(data[, 2:6] > 1) == 0, ]
+data[1:6]<-scale(data[1:6])
+```
+
+```{r}
+#| label: table 1
+#| tbl-cap: summary of mean
+data |>
+  summarize(
+    crl.tot = mean(crl.tot),
+    dollar = mean(dollar),
+    bang = mean(bang),
+    money = mean(money),
+    n000 = mean(n000),
+    make = mean(make),
+            .by = yesno) |>
+  gt() |>
+  fmt_number(decimals=2)
+```
+
+```{r}
+#| label: table 2
+#| tbl-cap: summary of IQR
+data |>
+  summarize(
+    crl.tot = median(crl.tot),
+    dollar = median(dollar),
+    bang = median(bang),
+    money = median(money),
+    n000 = median(n000),
+    make = median(make),
+    .by = yesno) |>
+  gt() |>
+  fmt_number(decimals=2)
+```
+
+```{r}
+ggplot(data, aes(x=yesno, y=crl.tot, fill=yesno)) +
+  geom_boxplot() +
+  labs(title="crl.tot by Class")
+ggplot(data, aes(x=yesno, y=dollar, fill=yesno)) +
+  geom_boxplot() +
+  labs(title="dollar by Class")
+ggplot(data, aes(x=yesno, y=log(bang+1), fill=yesno)) +
+  geom_boxplot() +
+  labs(title="bang by Class")
+ggplot(data, aes(x=yesno, y=money, fill=yesno)) +
+  geom_boxplot() +
+  labs(title="money by Class")
+ggplot(data, aes(x=yesno, y=n000, fill=yesno)) +
+  geom_boxplot() +
+  labs(title="n000 by Class")
+ggplot(data, aes(x=yesno, y=make, fill=yesno)) +
+  geom_boxplot() +
+  labs(title="make by Class")
+
+ggplot(data, aes(x=bang)) + 
+  geom_histogram(bins=50, fill="steelblue") +
+  ggtitle("Histogram of crl.tot")
+
+
+data$crl.tot_bin <- cut(data$crl.tot, 
+                       breaks = c(0, 100, 1000, max(data$crl.tot)),
+                       labels = c("Low", "Medium", "High"))
+```
+
+```{r}
+model <- glm(yesno ~ crl.tot + dollar + bang + money + n000 + make,
+             family = binomial(link = "logit"),
+             data = data)
+summary(model)
+#stepwise
+reduced_model <- step(model, direction = "both")
+summary(reduced_model)
+vif(reduced_model)
+library(pROC)
+prob <- predict(model, type = "response")
+roc_curve <- roc(data$yesno, prob)
+auc(roc_curve)
+prob <- predict(reduced_model, type = "response")
+roc_curve <- roc(data$yesno, prob)
+auc(roc_curve)
+
+cor_matrix <- cor(data[, c("crl.tot", "dollar", "bang", "money", "n000", "make")])
+corrplot::corrplot(cor_matrix, method = "number") 
+
+```
+
+```{r}
+ggplot(data, aes(x=bang, fill=yesno)) +
+  geom_density(alpha=0.5) +
+  labs(title="crl.tot Density by Class")
+
+ggplot(data, aes(x=crl.tot, fill=yesno)) +
+  geom_density(alpha=0.5) +
+  labs(title="crl.tot Density by Class")
+
+ggpairs(data[,1:7],aes(color=yesno))
+library(car)
+library(pROC)
+model <- glm(yesno ~ crl.tot + dollar + bang + money + n000 + make, 
+             data = data, family = binomial(link = "logit"))
+summary(model)
+vif(model)
+pred_prob <- predict(model, type = "response")
+pred_class <- ifelse(pred_prob > 0.5, 1, 0)
+confusion_matrix <- table(Actual = data$yesno, Predicted = pred_class)
+roc_curve <- roc(data$yesno, pred_prob)
+plot(roc_curve)
+auc(roc_curve)
+
+
+plot_model(model, show.values = TRUE, show.p = TRUE)
+plot_model(model, type = "pred", title = "",col='steelblue')
+```
