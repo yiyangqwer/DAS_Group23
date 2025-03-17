@@ -1,0 +1,271 @@
+---
+title: "ADD TITLE"
+number-sections: true
+format: 
+  html:
+    embed-resources: true
+    code-tools: true
+  pdf: default
+editor_options: 
+  chunk_output_type: console
+execute:
+  eval: true
+  warning: false
+  message: false
+---
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(ggplot2)
+library(moderndive)
+library(gapminder)
+library(sjPlot)
+library(stats)
+library(jtools)
+library(GGally)
+library(gt)
+library(pROC)
+library(randomForest)
+library(caret)
+```
+
+# Introduction
+
+```{r}
+data<-read.csv('D:/desktop/dataset23.csv') 
+data$yesno<-as.factor(data$yesno) 
+data <- data[rowSums(data[, 2:6] > 1) == 0, ] # the percentage of total numbe can not be greater than 1
+```
+
+```{r}
+#| label: table 1
+#| tbl-cap: summary of mean
+data |>
+  summarize(
+    crl.tot = mean(crl.tot),
+    dollar = mean(dollar),
+    bang = mean(bang),
+    money = mean(money),
+    n000 = mean(n000),
+    make = mean(make),
+            .by = yesno) |>
+  gt() |>
+  fmt_number(decimals=2)
+```
+
+```{r}
+#| label: table 2
+#| tbl-cap: summary of median
+data |>
+  summarize(
+    crl.tot = median(crl.tot),
+    dollar = median(dollar),
+    bang = median(bang),
+    money = median(money),
+    n000 = median(n000),
+    make = median(make),
+    .by = yesno) |>
+  gt() |>
+  fmt_number(decimals=2)
+
+```
+
+#Most mean values greater than median values may indicate right skewness.
+
+```{r}
+cor_matrix <- cor(data[, c("crl.tot", "dollar", "bang", "money", "n000", "make")])
+corrplot::corrplot(cor_matrix, method = "number") 
+```
+
+#correlation
+
+```{r}
+ggplot(data, aes(x=yesno, y=crl.tot, fill=yesno)) +
+  geom_boxplot() +
+  labs(title="crl.tot by Class")
+ggplot(data, aes(x=crl.tot, fill=yesno)) +
+  geom_density(alpha=0.5) +
+  labs(title="crl.tot Density by Class")
+```
+
+```{r}
+ggplot(data, aes(x=yesno, y=bang, fill=yesno)) +
+  geom_boxplot() +
+  labs(title="bang by Class")
+ggplot(data, aes(x=bang, fill=yesno)) +
+  geom_density(alpha=0.5) +
+  labs(title="bang Density by Class")
+```
+
+```{r}
+ggplot(data, aes(x=yesno, y=money, fill=yesno)) +
+  geom_boxplot() +
+  labs(title="money by Class")
+ggplot(data, aes(x=money, fill=yesno)) +
+  geom_density(alpha=0.5) +
+  labs(title="money Density by Class")
+```
+
+```{r}
+ggplot(data, aes(x=yesno, y=dollar, fill=yesno)) +
+  geom_boxplot() +
+  labs(title="dollar by Class")
+ggplot(data, aes(x=dollar, fill=yesno)) +
+  geom_density(alpha=0.5) +
+  labs(title="dollar Density by Class")
+```
+
+```{r}
+ggplot(data, aes(x=yesno, y=n000, fill=yesno)) +
+  geom_boxplot() +
+  labs(title="n000 by Class")
+ggplot(data, aes(x=n000, fill=yesno)) +
+  geom_density(alpha=0.5) +
+  labs(title="n000 Density by Class")
+```
+
+```{r}
+ggplot(data, aes(x=yesno, y=make, fill=yesno)) +
+  geom_boxplot() +
+  labs(title="make by Class")
+ggplot(data, aes(x=make, fill=yesno)) +
+  geom_density(alpha=0.5) +
+  labs(title="make Density by Class")
+```
+
+#Replace values below the 1st percentile with the 1st percentile value and values over the 99th percentile with the 99th percentile value, then standardize the data to mitigate the effects of outliers and right skewness. Due to the wide distribution and right-skewed nature of crl.tot, we substitute it with log(data\$crl.tot + 1).
+
+```{r}
+data1<-data
+win <- function(x, lower_perc = 0.01, upper_perc = 0.99) {
+  x <- as.numeric(x)
+  q <- quantile(x, probs = c(lower_perc, upper_perc), na.rm = TRUE)
+  x[x < q[1]] <- q[1]
+  x[x > q[2]] <- q[2]
+  return(x)
+}
+numeric_vars <- c("crl.tot", "dollar", "bang", "money", "n000", "make")
+data[numeric_vars] <- lapply(data[numeric_vars], win)
+data[,1:6]<-scale(data[,1:6])
+data$crl.tot_log <- log(data$crl.tot+1)
+
+```
+
+$$Y_i \sim \mathrm{Bernoulli}(p_i)$$
+
+$$\quad \log\left( \frac{p_i}{1 - p_i} \right) = \beta_0 + \beta_1 \text{crl.tot}_i + \beta_2 \text{dollar}_i + \beta_3 \text{bang}_i + \beta_4 \text{money}_i + \beta_5 \text{n000}_i + \beta_6 \text{make}_i$$
+
+-**$Y_i$** is ..
+
+-**$\text{crl.tot}_i$** is..
+
+-**$\text{dollar}_i$** is..
+
+-**$\text{bang}_i$** is..
+
+-**$\text{money}_i$** is
+
+-**$\text{n000}_i$** is
+
+-**$\text{make}_i$** is ..
+
+$$\quad \log\left( \frac{p_i}{1 - p_i} \right) = \beta_0 + \beta_1 log(\text{crl.tot}_i) + \beta_2 \text{dollar}_i + \beta_3 \text{bang}_i + \beta_4 \text{money}_i + \beta_5 \text{n000}_i + \beta_6 \text{make}_i$$
+
+-**$Y_i$** is ..
+
+-**$log(\text{crl.tot}_i)$** is..
+
+-**$\text{dollar}_i$** is..
+
+-**$\text{bang}_i$** is..
+
+-**$\text{money}_i$** is
+
+-**$\text{n000}_i$** is
+
+-**$\text{make}_i$** is ..
+
+```{r}
+model_original <- glm(yesno ~ crl.tot + dollar + bang + money + n000 + make,
+             family = binomial(link = "logit"),
+             data = data1)
+
+summary(model_original)
+
+model_scale <- glm(yesno ~ crl.tot + dollar + bang + money + n000 + make,
+             family = binomial(link = "logit"),
+             data = data)
+
+summary(model_scale)
+
+model_scale_log <- glm(yesno ~ bang + crl.tot_log + dollar+money+n000+make,
+               family = binomial(link = "logit"), data = data)
+summary(model_scale_log)
+
+AIC(model_original,model_scale,model_scale_log)
+```
+
+```{r}
+plot_model(model_scale_log, show.values = TRUE, show.p = TRUE)
+plot_model(model_scale_log, type = "pred", title = "",col='steelblue')
+```
+
+# Further Work
+
+```{r}
+set.seed(123)
+index <- createDataPartition(data$yesno, p = 0.7, list = FALSE)
+train_data <- data[index, ]
+test_data <- data[-index, ]
+```
+
+```{r}
+glm_model <- glm(yesno ~ bang + crl.tot_log + dollar+money+n000+make, data = train_data, family = binomial(link = 'logit'))
+
+glm_pred_prob <- predict(glm_model, newdata = test_data, type = "response")
+glm_pred_class <- ifelse(glm_pred_prob > 0.5,'y','n')
+glm_confusion <- confusionMatrix(factor(glm_pred_class), factor(test_data$yesno))
+glm_roc <- roc(test_data$yesno, glm_pred_prob)
+```
+
+```{r}
+set.seed(123)
+rf_model <- randomForest(yesno ~ bang + crl.tot_log + dollar+money+n000+make, data = train_data, ntree = 500, importance = TRUE)
+
+rf_pred_prob <- predict(rf_model, newdata = test_data, type = "prob")[, 2]
+rf_pred_class <- ifelse(rf_pred_prob > 0.5,'y','n')
+
+rf_confusion <- confusionMatrix(factor(rf_pred_class), factor(test_data$yesno))
+rf_roc <- roc(test_data$yesno, rf_pred_prob)
+varImpPlot(rf_model, main="Predicting")
+```
+
+```{r}
+get_model_metrics <- function(model_name, confusion,k) {
+  data.frame(
+    Model = model_name,
+    Accuracy = confusion$overall["Accuracy"],
+    Sensitivity = confusion$byClass["Sensitivity"],
+    Specificity = confusion$byClass["Specificity"],
+    Precision = confusion$byClass["Precision"],
+    AUC=as.numeric(k$auc),
+    stringsAsFactors = FALSE
+  )
+}
+results <- bind_rows(
+  get_model_metrics("Random Forest", 
+                   confusion = rf_confusion,k=rf_roc),
+  get_model_metrics("GLM",
+                   confusion = glm_confusion,k=glm_roc)
+) %>% 
+  mutate(across(-Model, ~ round(., 3)))
+
+knitr::kable(results, align = "c")
+```
+
+```{r}
+plot(glm_roc, col = "blue", main = "ROC Curve")
+lines(rf_roc, col = "red")
+legend("bottomright", legend = c("GLM", "randomForest"), col = c("blue", "red"), lwd = 2)
+```
